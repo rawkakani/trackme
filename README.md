@@ -1,5 +1,7 @@
 # TrackMe
 
+![TrackMe cover](assets/cover.svg)
+
 TrackMe is a service-delivery tracking layer: create orders via API, give customers a live tracking link, and let technicians work through a day queue with status updates.
 
 ## 💡 Why we're building this
@@ -148,7 +150,8 @@ Environment variables (defaults shown):
 - `SD_ROAD_FACTOR=1.4`
 - `SD_DEFAULT_TRAVEL_MIN=25`
 
-## 📚 Docs
-- `FOUNDATION.md` — product foundation, roadmap, MVP scope
-- `IMPLEMENTATION_PLAN.md` — implementation plan
-- `openapi.yaml` — API contract (also served at `/v1/openapi.yaml` when running)
+## Docs
+- [`FOUNDATION.md`](FOUNDATION.md) — product foundation, roadmap, MVP scope
+- [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — implementation plan
+- [`openapi.yaml`](openapi.yaml) — API contract (also served at `/v1/openapi.yaml` when running)
+
