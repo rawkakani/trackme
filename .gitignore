@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+apps/web/dist/
+
+# data / runtime
+data/
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# env / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# editors / agents
+.claude/
+.opencode/
+.cursor/
+.vscode/
+.idea/
+.DS_Store
+
+# misc
+bun.lockb

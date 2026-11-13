@@ -1,0 +1,761 @@
+openapi: 3.1.0
+info:
+  title: SD (Service Delivery) Order API
+  version: 0.1.0
+  summary: Create service orders, queue them per technician per day, and track them.
+  description: |
+    API-first service layer for SD. Integrators (ISPs, delivery companies, booking systems)
+    create orders with an API key. Every order gets a private tracking link for the customer
+    and lands in its technician's day queue. The technician works the queue through a private
+    link; every change is pushed to the customer's tracking page.
+
+    Three ways in, one per audience:
+    - **Integrator** (`/v1/orders`): Bearer API key.
+    - **Customer** (`/v1/track/{token}`): the unguessable token in their tracking link.
+    - **Technician** (`/v1/tech/{token}`): the unguessable token in their technician link.
+
+    SD does not send email or SMS. Creating an order returns the order id and the links;
+    the integrator passes them on to the customer and technician through its own channels.
+
+    Conventions:
+    - Times are RFC 3339 with offset. Days (`date`) are `YYYY-MM-DD` in the service's time zone.
+    - Errors use `application/problem+json` (RFC 9457).
+    - `POST /v1/orders` accepts an `Idempotency-Key` header; the same key with the same body
+      returns the first result instead of a second order.
+servers:
+  - url: http://localhost:4100
+    description: Local (bun run dev)
+
+tags:
+  - name: Orders
+    description: Integrator endpoints. Create, read, reschedule and cancel orders.
+  - name: Tracking
+    description: Customer endpoints behind the tracking link.
+  - name: Technician
+    description: Technician endpoints behind the technician link.
+
+paths:
+  /v1/orders:
+    post:
+      tags: [Orders]
+      operationId: createOrder
+      summary: Create an order
+      description: |
+        Creates the order, upserts the customer (by email, phone as secondary) and the
+        technician (by email or phone), places the order in the technician's queue for the
+        appointment day, and returns the order id with the customer's tracking link.
+        If the technician has no access link yet, one is issued and returned as `technicianUrl`
+        (only this once; only its hash is stored). Nothing is sent by email or SMS.
+      security: [{ apiKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+            example:
+              externalRef: ISP-88213
+              customer:
+                name: Thandi Mokoena
+                email: thandi@example.com
+                phone: '+27821234567'
+              address:
+                line1: 14 Jacaranda Street
+                city: Pretoria
+                postalCode: '0181'
+                location: { lat: -25.7479, lng: 28.2293 }
+                instructions: Gate code 4411
+              handledBy:
+                email: sipho@fibrefix.co.za
+                name: Sipho Dlamini
+              appointment:
+                date: '2026-11-16'
+                kind: window
+                start: '2026-11-16T08:00:00+02:00'
+                end: '2026-11-16T12:00:00+02:00'
+              durationMinutes: 60
+              service: Fibre installation
+              manager: { email: lerato@fibrefix.co.za }
+              provider: { name: Example ISP, email: sales@example-isp.co.za }
+      responses:
+        '201':
+          description: Order created and queued.
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateOrderResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: Idempotency-Key reused with a different body.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      tags: [Orders]
+      operationId: listOrders
+      summary: List orders
+      description: Orders in queue order when filtered by technician and date, newest first otherwise.
+      security: [{ apiKey: [] }]
+      parameters:
+        - name: technician
+          in: query
+          description: Technician email or E.164 phone.
+          schema: { type: string }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/OrderStatus' }
+        - name: customer
+          in: query
+          description: Customer email or E.164 phone.
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: A page of orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Order' }
+                  nextCursor: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /v1/orders/{orderId}:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Orders]
+      operationId: getOrder
+      summary: Get an order
+      security: [{ apiKey: [] }]
+      responses:
+        '200':
+          description: The order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      tags: [Orders]
+      operationId: updateOrder
+      summary: Reschedule, reassign or correct an order
+      description: |
+        Moves the order to another day or window, hands it to another technician, or corrects
+        contact and address details. A change of day, window or technician re-queues the order
+        and shows the reason on the customer's tracking page straight away. Only `scheduled` orders can be
+        moved; contact details can be corrected until the order is `completed`.
+      security: [{ apiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrderRequest' }
+      responses:
+        '200':
+          description: The updated order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /v1/orders/{orderId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Orders]
+      operationId: cancelOrder
+      summary: Cancel an order
+      description: Removes the order from the queue, moves everyone behind it up, and shows the reason on the customer's tracking page.
+      security: [{ apiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: The cancelled order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /v1/orders/{orderId}/events:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Orders]
+      operationId: listOrderEvents
+      summary: The order's audit trail
+      description: Every status change and queue move, oldest first. Append-only.
+      security: [{ apiKey: [] }]
+      responses:
+        '200':
+          description: The events.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/OrderEvent' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /v1/track/{token}:
+    parameters:
+      - $ref: '#/components/parameters/TrackingToken'
+    get:
+      tags: [Tracking]
+      operationId: getTracking
+      summary: The customer's view of their order
+      description: |
+        Position in the technician's day, how many are booked that day, how many are still
+        ahead, the estimated arrival, and, once the technician is on the way to this customer,
+        how far away they are. Never includes other customers' details.
+      responses:
+        '200':
+          description: The tracking view.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackingView' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /v1/track/{token}/stream:
+    parameters:
+      - $ref: '#/components/parameters/TrackingToken'
+    get:
+      tags: [Tracking]
+      operationId: streamTracking
+      summary: Live updates for the tracking view
+      description: |
+        Server-Sent Events. Each `tracking` event carries a full `TrackingView` as JSON, sent
+        whenever anything that changes it happens (queue move, status change, technician
+        location). A `ping` comment is sent every 25 seconds.
+      responses:
+        '200':
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /v1/tech/{token}/day:
+    parameters:
+      - $ref: '#/components/parameters/TechnicianToken'
+    get:
+      tags: [Technician]
+      operationId: getTechnicianDay
+      summary: The technician's task list for a day
+      parameters:
+        - name: date
+          in: query
+          description: Defaults to today.
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Tasks in queue order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TechnicianDay' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /v1/tech/{token}/stream:
+    parameters:
+      - $ref: '#/components/parameters/TechnicianToken'
+    get:
+      tags: [Technician]
+      operationId: streamTechnicianDay
+      summary: Live updates for the technician's day
+      description: Server-Sent Events. Each `day` event carries a full `TechnicianDay` for today.
+      responses:
+        '200':
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /v1/tech/{token}/orders/{orderId}:
+    parameters:
+      - $ref: '#/components/parameters/TechnicianToken'
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Technician]
+      operationId: getTask
+      summary: One task with the customer's details and directions
+      responses:
+        '200':
+          description: The task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /v1/tech/{token}/orders/{orderId}/actions:
+    parameters:
+      - $ref: '#/components/parameters/TechnicianToken'
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Technician]
+      operationId: performTaskAction
+      summary: Move a task on (start, arrive, complete, unable)
+      description: |
+        One tap from the task list. Each action is a status transition; invalid transitions
+        return 409. `start` puts the order `en_route` and tells the customer it is their turn.
+        Only one order per technician can be `en_route` or `on_site` at a time.
+        `unable` needs a `note`, which is shown on the customer's tracking page.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskAction' }
+      responses:
+        '200':
+          description: The task after the action.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /v1/tech/{token}/location:
+    parameters:
+      - $ref: '#/components/parameters/TechnicianToken'
+    post:
+      tags: [Technician]
+      operationId: reportLocation
+      summary: Report the technician's current position
+      description: |
+        Sent by the technician page every 30 seconds while an order is `en_route`. Only the
+        latest position is kept. The customer whose turn it is sees the distance and ETA from it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LocationPing' }
+      responses:
+        '204': { description: Stored. }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: Integrator API key, `sd_live_...` or `sd_test_...`.
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^ord_[A-Za-z0-9]{16,}$' }
+    TrackingToken:
+      name: token
+      in: path
+      required: true
+      description: Customer tracking token from the link. Looked up by its hash.
+      schema: { type: string, minLength: 32 }
+    TechnicianToken:
+      name: token
+      in: path
+      required: true
+      description: Technician access token from the link. Only its hash is stored.
+      schema: { type: string, minLength: 32 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, maxLength: 255 }
+
+  responses:
+    Problem:
+      description: Error.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    InvalidTransition:
+      description: The order's current status does not allow this.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, description: 'e.g. https://sd.dev/problems/invalid-transition' }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        errors:
+          type: array
+          description: Field errors for 400/422.
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path: { type: string, examples: ['customer.email'] }
+              message: { type: string }
+
+    Email:
+      type: string
+      format: email
+      maxLength: 254
+    Phone:
+      type: string
+      description: E.164.
+      pattern: '^\+[1-9]\d{6,14}$'
+
+    LatLng:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+
+    Address:
+      type: object
+      required: [line1]
+      properties:
+        line1: { type: string, maxLength: 200 }
+        line2: { type: string, maxLength: 200 }
+        city: { type: string, maxLength: 100 }
+        postalCode: { type: string, maxLength: 20 }
+        location:
+          $ref: '#/components/schemas/LatLng'
+          description: Needed for distance and directions. Without it the customer sees ETA only.
+        instructions: { type: string, maxLength: 500, description: 'Gate codes, landmarks.' }
+
+    CustomerInput:
+      type: object
+      description: Email is the primary identifier, phone the secondary. At least one is required; both is best.
+      anyOf:
+        - required: [email]
+        - required: [phone]
+      properties:
+        name: { type: string, maxLength: 120 }
+        email: { $ref: '#/components/schemas/Email' }
+        phone: { $ref: '#/components/schemas/Phone' }
+
+    TechnicianRef:
+      type: object
+      description: The technician who handles the order, by email or phone. Created on first use.
+      anyOf:
+        - required: [email]
+        - required: [phone]
+      properties:
+        name: { type: string, maxLength: 120 }
+        email: { $ref: '#/components/schemas/Email' }
+        phone: { $ref: '#/components/schemas/Phone' }
+
+    ManagerRef:
+      type: object
+      description: The technician's manager, by email. Stored on the order; manager notifications and views are on the roadmap.
+      required: [email]
+      properties:
+        name: { type: string, maxLength: 120 }
+        email: { $ref: '#/components/schemas/Email' }
+
+    ProviderRef:
+      type: object
+      description: The external provider (e.g. the ISP or its sales consultant). Stored on the order; provider notifications and views are on the roadmap.
+      anyOf:
+        - required: [email]
+        - required: [phone]
+      properties:
+        name: { type: string, maxLength: 120 }
+        email: { $ref: '#/components/schemas/Email' }
+        phone: { $ref: '#/components/schemas/Phone' }
+
+    Appointment:
+      type: object
+      description: |
+        `exact` means the customer was promised a time (`start`). `window` means an arrival
+        window (`start`–`end`). The customer page always says which one it is.
+      required: [date, kind]
+      properties:
+        date: { type: string, format: date }
+        kind: { type: string, enum: [exact, window] }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+
+    OrderStatus:
+      type: string
+      description: |
+        `scheduled` → `en_route` → `on_site` → `completed`.
+        `scheduled` → `cancelled` (integrator). `en_route` | `on_site` → `unable` (technician, with a reason).
+      enum: [scheduled, en_route, on_site, completed, unable, cancelled]
+
+    CreateOrderRequest:
+      type: object
+      required: [customer, address, handledBy, appointment]
+      properties:
+        externalRef:
+          type: string
+          maxLength: 120
+          description: The integrator's own id for this order. Unique per API key when set.
+        customer: { $ref: '#/components/schemas/CustomerInput' }
+        address: { $ref: '#/components/schemas/Address' }
+        handledBy: { $ref: '#/components/schemas/TechnicianRef' }
+        appointment: { $ref: '#/components/schemas/Appointment' }
+        durationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 600
+          default: 60
+          description: Expected time on site. Feeds the ETA of everyone behind.
+        service: { type: string, maxLength: 120, description: 'What is being done, shown to both sides.' }
+        notes: { type: string, maxLength: 2000, description: Shown to the technician only. }
+        manager: { $ref: '#/components/schemas/ManagerRef' }
+        provider: { $ref: '#/components/schemas/ProviderRef' }
+
+    UpdateOrderRequest:
+      type: object
+      minProperties: 1
+      properties:
+        appointment: { $ref: '#/components/schemas/Appointment' }
+        handledBy: { $ref: '#/components/schemas/TechnicianRef' }
+        durationMinutes: { type: integer, minimum: 5, maximum: 600 }
+        customer: { $ref: '#/components/schemas/CustomerInput' }
+        address: { $ref: '#/components/schemas/Address' }
+        notes: { type: string, maxLength: 2000 }
+        reason:
+          type: string
+          maxLength: 500
+          description: Required when appointment or handledBy change. Shown on the customer's tracking page.
+
+    Person:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        name: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+
+    QueuePlace:
+      type: object
+      required: [position, total, ahead]
+      properties:
+        position: { type: integer, minimum: 1, description: 'Place in the technician''s list for the day, 1-based.' }
+        total: { type: integer, minimum: 1, description: Orders booked for that technician that day (cancelled excluded). }
+        ahead: { type: integer, minimum: 0, description: Orders before this one that are not finished yet. }
+
+    Order:
+      type: object
+      required: [id, status, customer, address, technician, appointment, durationMinutes, queue, trackingUrl, createdAt, updatedAt]
+      properties:
+        id: { type: string, examples: ['ord_8f2kd93ka0s9d8f7'] }
+        externalRef: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        customer: { $ref: '#/components/schemas/Person' }
+        address: { $ref: '#/components/schemas/Address' }
+        technician: { $ref: '#/components/schemas/Person' }
+        manager: { oneOf: [{ $ref: '#/components/schemas/Person' }, { type: 'null' }] }
+        provider: { oneOf: [{ $ref: '#/components/schemas/Person' }, { type: 'null' }] }
+        appointment: { $ref: '#/components/schemas/Appointment' }
+        durationMinutes: { type: integer }
+        service: { type: [string, 'null'] }
+        notes: { type: [string, 'null'] }
+        queue: { $ref: '#/components/schemas/QueuePlace' }
+        eta: { oneOf: [{ $ref: '#/components/schemas/Eta' }, { type: 'null' }] }
+        trackingUrl: { type: string, format: uri }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateOrderResponse:
+      type: object
+      description: The new order's id and links. Fetch `GET /v1/orders/{orderId}` for the full order.
+      required: [orderId, status, queue, trackingUrl]
+      properties:
+        orderId: { type: string, examples: ['ord_8f2kd93ka0s9d8f7'] }
+        externalRef: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        queue: { $ref: '#/components/schemas/QueuePlace' }
+        trackingUrl:
+          type: string
+          format: uri
+          description: The customer's private tracking link. The integrator sends it to the customer.
+        technicianUrl:
+          type: string
+          format: uri
+          description: Present only when a new technician link was issued with this order. The integrator sends it to the technician.
+
+    Eta:
+      type: object
+      required: [at, basis, updatedAt]
+      properties:
+        at: { type: string, format: date-time, description: Most likely arrival. }
+        earliest: { type: [string, 'null'], format: date-time }
+        latest: { type: [string, 'null'], format: date-time }
+        basis:
+          type: string
+          enum: [schedule, queue, live]
+          description: |
+            `schedule`: from the appointment only (day not started).
+            `queue`: from the work still ahead plus travel estimates.
+            `live`: from the technician's reported position (your turn).
+        updatedAt: { type: string, format: date-time }
+
+    TrackingView:
+      type: object
+      description: The only data a customer ever gets. Nothing about other customers beyond counts.
+      required: [orderId, status, state, appointment, queue, technician, updatedAt]
+      properties:
+        orderId: { type: string }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        state:
+          type: string
+          enum: [waiting, your_turn, on_site, done, unable, cancelled]
+          description: Which screen to show. `waiting` = scheduled; `your_turn` = en_route to this customer.
+        service: { type: [string, 'null'] }
+        appointment: { $ref: '#/components/schemas/Appointment' }
+        queue: { $ref: '#/components/schemas/QueuePlace' }
+        eta: { oneOf: [{ $ref: '#/components/schemas/Eta' }, { type: 'null' }] }
+        technician:
+          type: object
+          required: [name]
+          properties:
+            name: { type: [string, 'null'], description: First name only. }
+            distanceMeters: { type: [integer, 'null'], description: 'Only in your_turn, when both positions are known.' }
+            locationUpdatedAt: { type: [string, 'null'], format: date-time }
+        message:
+          type: [string, 'null']
+          description: The latest note for the customer (reschedule reason, unable reason).
+        contact:
+          type: object
+          description: Who to reach about this order.
+          properties:
+            phone: { type: [string, 'null'] }
+            email: { type: [string, 'null'] }
+        updatedAt: { type: string, format: date-time }
+
+    TaskSummary:
+      type: object
+      required: [orderId, position, status, customerName, addressLine, appointment, durationMinutes]
+      properties:
+        orderId: { type: string }
+        position: { type: integer }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        customerName: { type: [string, 'null'] }
+        addressLine: { type: string }
+        service: { type: [string, 'null'] }
+        appointment: { $ref: '#/components/schemas/Appointment' }
+        durationMinutes: { type: integer }
+        eta: { oneOf: [{ $ref: '#/components/schemas/Eta' }, { type: 'null' }] }
+
+    TechnicianDay:
+      type: object
+      required: [technician, date, tasks, counts]
+      properties:
+        technician: { $ref: '#/components/schemas/Person' }
+        date: { type: string, format: date }
+        activeOrderId: { type: [string, 'null'], description: The order currently en_route or on_site. }
+        counts:
+          type: object
+          required: [total, done, remaining]
+          properties:
+            total: { type: integer }
+            done: { type: integer }
+            remaining: { type: integer }
+        tasks:
+          type: array
+          items: { $ref: '#/components/schemas/TaskSummary' }
+
+    Task:
+      allOf:
+        - $ref: '#/components/schemas/TaskSummary'
+        - type: object
+          required: [customer, address, directionsUrl, allowedActions]
+          properties:
+            customer: { $ref: '#/components/schemas/Person' }
+            address: { $ref: '#/components/schemas/Address' }
+            notes: { type: [string, 'null'] }
+            directionsUrl:
+              type: string
+              format: uri
+              description: Opens turn-by-turn directions in the phone's maps app.
+            allowedActions:
+              type: array
+              items: { $ref: '#/components/schemas/TaskActionType' }
+
+    TaskActionType:
+      type: string
+      enum: [start, arrive, complete, unable]
+
+    TaskAction:
+      type: object
+      required: [type]
+      properties:
+        type: { $ref: '#/components/schemas/TaskActionType' }
+        note:
+          type: string
+          maxLength: 1000
+          description: Required for `unable`. Shown to the customer.
+        location: { $ref: '#/components/schemas/LatLng' }
+
+    LocationPing:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        accuracyMeters: { type: number, minimum: 0 }
+        at: { type: string, format: date-time, description: Defaults to receipt time. }
+
+    OrderEvent:
+      type: object
+      required: [id, orderId, type, actor, at]
+      properties:
+        id: { type: string }
+        orderId: { type: string }
+        type:
+          type: string
+          enum:
+            - order.created
+            - order.rescheduled
+            - order.reassigned
+            - order.updated
+            - order.cancelled
+            - order.queue_moved
+            - order.status_changed
+        actor:
+          type: string
+          enum: [integrator, technician, system]
+        data: { type: object, additionalProperties: true }
+        at: { type: string, format: date-time }
