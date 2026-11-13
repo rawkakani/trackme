@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
   <rect width="100%" height="100%" fill="#ffffff"/>
-  <g transform="translate(72,72)" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+
+  <!-- TrackMe on the left -->
+  <g transform="translate(96,180)" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="0" y="0" font-size="120" font-weight="900" fill="#111111" letter-spacing="-5">TrackMe</text>
+    <text x="0" y="72" font-size="34" font-weight="500" fill="#6b7280">Service delivery tracking</text>
+    <text x="0" y="120" font-size="24" font-weight="500" fill="#6b7280">Live queue, ETA, and technician updates</text>
+  </g>
+
+  <!-- Queue components on the right -->
+  <g transform="translate(980,72)" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
     <!-- Queue position -->
     <text x="0" y="110" font-size="112" font-weight="900" fill="#111111" letter-spacing="-4">3rd</text>
     <text x="0" y="150" font-size="28" font-weight="500" fill="#6b7280">of 7 today · 2 ahead of you</text>

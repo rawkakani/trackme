@@ -1,5 +1,3 @@
-# TrackMe
-
 ![TrackMe cover](assets/cover.svg)
 
 TrackMe is a service-delivery tracking layer: create orders via API, give customers a live tracking link, and let technicians work through a day queue with status updates.
