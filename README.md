@@ -1,84 +1,58 @@
-# TrackMe (SD - Service Delivery)
+# TrackMe
 
 TrackMe is a service-delivery tracking layer: create orders via API, give customers a live tracking link, and let technicians work through a day queue with status updates.
 
-## Why we're building this
+## 💡 Why we're building this
 
-Sometimes the ability to read is a nuisance, anyhow. [Frogfoot](https://www.frogfoot.co.za/) just delivered the worst experience — a fourth time in a row.
+[Frogfoot](https://www.frogfoot.co.za/) missed my installation four times in a row. 😤
 
-I was genuinely so pissed off. The service was so trash that I thought it was a one-man operation. I wouldn’t have minded them falling under the trap of [ICASA](https://www.icasa.org.za/). The service was so trash that I was willing to have them succumb to the disaster of [ICASA](https://www.icasa.org.za/)’s 30% black empowerment scheme.
-
-Then I did my research and found out they are not a one-man shop — which made it even worse. To even think about it: you have a sister company called Box. You would think you would have learned your lessons during those periods. No. Let’s just continue delivering trash to users.
-
-Damn, you pissed me off so much over the past couple of days.
+The service was so bad that I assumed it was a one-man operation. It isn't, which makes it worse. They have a sister company, [Vox](https://www.vox.co.za/), and still haven't learned. 🤦
 
 ---
 
-### The real problem
+### 🎯 The real problem
 
-I’m going to put something together, because I realized my biggest problem isn’t that your people didn’t show up.
+The biggest problem isn't that the technicians didn't show up. It's that they told me they would, and didn't. 🚫
 
-**The biggest problem is that you told me you were going to show up — and you didn’t.**
+Life happens. When it does, they should call and say they can't make it. Instead, they skip the appointment and phone the next day: "Oh, by the way…"
 
-I understand life happens. But when life happens, *call me* and tell me that life happened and you cannot show up. Don’t just not show up and then call me the next day like, “Oh, by the way…” No.
+They told me they were outside when I was outside the whole time. 🙃 They said they called, but my phone and WhatsApp show no missed calls. 📵 To find out where anyone was, I had to call again and again. The number was unavailable most of the time. It felt like 90% of the time, and I only got through after four or five attempts.
 
-Don’t tell me “yes, I’ll make myself available” — because I sadly need the internet at home — and then still not show up.
-
-Then you have the audacity to tell me you were outside when I was outside the whole time. Even better: you tell me you called me, and I see no missed calls — not on my phone, not on WhatsApp. Yet you insist you called.
-
-I have to call you over and over and over again. I have to call a number that’s unavailable most of the time (maybe I’m exaggerating, but it felt like 90% of the time — I only reached someone after 4 or 5 attempts, even after taking breaks) just to figure out where the hell your people are.
-
-So I’ve been thinking: what in heaven’s name would help in this process?
-
-Because it makes no sense. You tell me you’re going to show up, so I have to stay locked in my house. Because I’m locked in my house, there are things I can’t do — my life is tied down to your nuisance. If I knew you weren’t going to come, I would have continued living my life.
-
-The best way for me to know you’re not going to come is for you to **communicate effectively** where you are and what’s going to happen.
+I stayed home 🏠 because they said they were coming, and that kept me from everything else I needed to do. If I had known they weren't coming, I would have carried on with my day.
 
 ---
 
-### The booking and communication failures
+### 📅 The booking and communication failures
 
-My favorite part: you book me for 12, and you don’t show up at 12. Then I call and find out the 12:00 booking is just a *window* in which a technician might come.
+I was booked for 12:00 and nobody came at 12:00. 🕛 When I called, I learned that 12:00 was only a *window* in which a technician might arrive.
 
-Come again.
+1. I was booked for 12:00.
+2. The technician had other customers in the same slot.
+3. The technician was unreachable, so I couldn't tell where they were.
+4. They never arrived.
 
-1. You booked me.
-2. Your technician has other people booked in the same slot.
-3. The technician is unreachable, so I can’t know where they are.
-4. They just don’t show up.
+They can't blame their systems, because they sent me SMS messages. 💬 One said the technician was coming. Another said the technician was on site. I went outside and nobody was there. 👀 I called and couldn't get through. An hour later someone answered and told me, "Oh, this is what that means."
 
-What? Nah, guys. Y’all need to fix this.
+They didn't show up that day. The next day they called, shocked, to ask whether their technician had come. *How do they not know whether their own technician showed up?*
 
-And you can’t blame systems when you were sending me SMS messages. You send me an SMS to tell me you’re coming — so I think, okay, you’re serious. Then you send another saying the person is on site. I go outside: no one is on site. I call — can’t reach you. I have to call multiple times. An hour later I finally reach someone, and they say, “Oh, this is what that means.” Weird. Okay. Bye.
-
-You don’t show up that day — who knows what happens?
-
-The next day, you sound shocked when you ask me if your guys showed up. *How do you not know your guy did not show up?*
-
-Then you don’t show up again. Then you’re shocked when you call me after I’ve been calling repeatedly, after repeated rescheduling — all I get is an email saying, “We have rescheduled.” On the fourth time, you expect me to be calm?
-
-I am on a streak where I have to put this on social media. So this is going on social media. I’m going to call it trash on social media. Lucky for you, I’m a nobody with zero influence and my voice doesn’t matter — I just need to vent, because that was the most atrocious experience. It was so bad I’ve been wishing [ICASA](https://www.icasa.org.za/) would shut you down. That’s how bad the service was.
-
-Y’all need to pick up your socks, because what is this?
+Then they didn't show up again. After repeated calls and repeated rescheduling, all I got was an email: "We have rescheduled." By the fourth time, they expected me to be calm. 😑
 
 ---
 
-### What could have resolved this
+### ✅ What could have resolved this
 
 What would have resolved this is **effective communication**:
 
-- Tell me there are other people ahead of me and how far the technician is.
-- Show me when the technician picks up orders and where they are in the route.
-- If I want priority delivery, let me pay extra so I’m first in line. I rarely do that — but in this case, I would have.
-- Let me see where you are, when you’re on your way, and how far you are, so I can plan my life around it.
+- 👥 Show me who is ahead of me and how far away the technician is.
+- 🗺️ Show me when the technician picks up orders and where they are on the route.
+- 🚗 Show me when they are on their way, so I can plan my day around it.
+- ⭐ Let me pay extra for priority so I'm first in line. I rarely would, but here I would have.
 
-I just need a good experience and something I can look at to know where things stand. But having to pick up the phone and not be able to reach you — and then the internet service provider says they can’t reach you either — come on.
+I just need something I can look at to know where things stand. Instead I couldn't reach them, and even the internet service provider couldn't reach them. What system do they have over there, and why hasn't this been solved?
 
-What kind of system do you have over there? And what are you doing if you haven’t solved this already? I just don’t get it.
+**So let's build it.** 🚀
 
-**So: let’s put something together.**
-
-## Problems observed
+## 🔍 Problems observed
 
 ### 1. Missed appointments without proactive notice
 - Appointments were missed multiple times.
@@ -100,14 +74,16 @@ What kind of system do you have over there? And what are you doing if you haven�
 - Even the upstream service provider could not reliably reach the delivery team.
 - The burden of tracking down status fell entirely on the customer.
 
-## What TrackMe solves (MVP)
+If you don't adopt this afterwards, then I wish you all the best with [ICASA](https://www.icasa.org.za/). 😉
+
+## 📦 What TrackMe solves (MVP)
 
 - **Create Order API:** integrators create orders (customer, address, technician/handled-by, appointment) and receive `orderId` + customer `trackingUrl` (and `technicianUrl` on first issue).
 - **Customer tracking:** queue position, booked count, ETA, and live state (waiting / your turn with distance / on site / done / unable or cancelled with reason).
 - **Technician flow:** day task list, task details (contact/directions/notes), actions (Start → Arrived → Done / Can’t complete with reason), and location updates while en route.
 - **Live updates:** tracking and technician views update via SSE when status/queue changes.
 
-## Setup
+## 🛠️ Setup
 
 ### Prerequisites
 - [Bun](https://bun.sh/) >= 1.2
@@ -172,7 +148,7 @@ Environment variables (defaults shown):
 - `SD_ROAD_FACTOR=1.4`
 - `SD_DEFAULT_TRAVEL_MIN=25`
 
-## Docs
+## 📚 Docs
 - `FOUNDATION.md` — product foundation, roadmap, MVP scope
 - `IMPLEMENTATION_PLAN.md` — implementation plan
 - `openapi.yaml` — API contract (also served at `/v1/openapi.yaml` when running)
